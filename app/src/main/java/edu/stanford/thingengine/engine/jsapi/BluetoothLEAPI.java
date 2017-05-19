@@ -57,8 +57,8 @@ import android.os.IBinder;
  * This class includes a small subset of standard GATT attributes for demonstration purposes.
  */
 
-// public class BluetoothLEAPI extends JavascriptAPI{
-public class BluetoothAPI extends JavascriptAPI {
+public class BluetoothLEAPI extends JavascriptAPI{
+//public class BluetoothAPI extends JavascriptAPI {
 
     public Context m_context = null;
     public static final String LOG_TAG = "thingengine.Service";
@@ -100,7 +100,7 @@ public class BluetoothAPI extends JavascriptAPI {
             "com.example.bluetooth.le.EXTRA_DATA";
 
 
-    private static final String TAG = new String("BluetoothAPI");
+    private static final String TAG = new String("BluetoothLEAPI");
 
 
     //newly added
@@ -205,11 +205,11 @@ public class BluetoothAPI extends JavascriptAPI {
         }
     }
 
-    public BluetoothAPI(Handler handler, EngineService ctx, ControlChannel control) {
+    //public BluetoothAPI(Handler handler, EngineService ctx, ControlChannel control) {
+    public BluetoothLEAPI(Handler handler, EngineService ctx, ControlChannel control) {
         // public BluetoothLEAPI(Handler handler, EngineService ctx, ControlChannel control) {
-        // public BluetoothLEAPI(Handler handler, EngineService ctx, ControlChannel control) {
-        super("Bluetooth", control);
         // super("Bluetooth", control);
+        super("BluetoothLE", control);
         this.ctx = ctx;
         this.handler = handler;
         bluetoothDeviceAddress = null;
@@ -685,8 +685,8 @@ public class BluetoothAPI extends JavascriptAPI {
     public class LocalBinder extends Binder {
 
         // Log.d("IBinder", "LocalBind");
-        BluetoothAPI getService() {
-            return BluetoothAPI.this;
+        BluetoothLEAPI getService() {
+            return BluetoothLEAPI.this;
         }
     }
 

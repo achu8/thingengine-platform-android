@@ -11,6 +11,7 @@ import edu.stanford.thingengine.engine.jsapi.AssistantAPI;
 import edu.stanford.thingengine.engine.jsapi.AudioManagerAPI;
 import edu.stanford.thingengine.engine.jsapi.AudioRouterAPI;
 import edu.stanford.thingengine.engine.jsapi.BluetoothAPI;
+import edu.stanford.thingengine.engine.jsapi.BluetoothLEAPI;
 import edu.stanford.thingengine.engine.jsapi.ContactAPI;
 import edu.stanford.thingengine.engine.jsapi.ContentAPI;
 import edu.stanford.thingengine.engine.jsapi.GpsAPI;
@@ -62,6 +63,7 @@ public class EngineThread extends Thread {
                     new AudioManagerAPI(context, control);
                     new SmsAPI(workerHandler, context, control);
                     new BluetoothAPI(workerHandler, context, control);
+                    new BluetoothLEAPI(workerHandler, context, control);
                     new AudioRouterAPI(workerHandler, context, control);
                     new SystemAppsAPI(context, control);
                     StreamAPI stream = new StreamAPI(control);

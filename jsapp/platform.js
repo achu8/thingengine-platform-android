@@ -22,7 +22,11 @@ const _audioManagerApi = JavaAPI.makeJavaAPI('AudioManager', [],
     ['setRingerMode', 'adjustMediaVolume', 'setMediaVolume'], []);
 const _smsApi = JavaAPI.makeJavaAPI('Sms', ['start', 'stop', 'sendMessage'], [], ['onsmsreceived']);
 const _btApi = JavaAPI.makeJavaAPI('Bluetooth',
-    ['start', 'startDiscovery', 'pairDevice', 'readUUIDs'],
+    ['start', 'startDiscovery', 'pairDevice', 'readUUIDs', 'getHeartRate'],
+    ['stop', 'stopDiscovery'],
+    ['ondeviceadded', 'ondevicechanged', 'onstatechanged', 'ondiscoveryfinished']);
+const _btLEApi = JavaAPI.makeJavaAPI('BluetoothLE',
+    ['start', 'startDiscovery', 'pairDevice', 'readUUIDs', 'getHeartRate'],
     ['stop', 'stopDiscovery'],
     ['ondeviceadded', 'ondevicechanged', 'onstatechanged', 'ondiscoveryfinished']);
 const _audioRouterApi = JavaAPI.makeJavaAPI('AudioRouter',
@@ -236,6 +240,9 @@ module.exports = {
 
         case 'bluetooth':
             return _btApi;
+
+        case 'bluetooth-le':
+            return _btLEApi;
 
         case 'audio-router':
             return _audioRouterApi;
