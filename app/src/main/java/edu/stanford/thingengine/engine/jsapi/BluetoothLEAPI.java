@@ -58,12 +58,9 @@ import android.os.IBinder;
  */
 
 public class BluetoothLEAPI extends JavascriptAPI{
-//public class BluetoothAPI extends JavascriptAPI {
 
     public Context m_context = null;
     public static final String LOG_TAG = "thingengine.Service";
-
-    // AC_EDIT
 
     private BluetoothGatt bluetoothGatt;
     public List<BluetoothGattService> gattServices;
@@ -100,7 +97,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
             "com.example.bluetooth.le.EXTRA_DATA";
 
 
-    private static final String TAG = new String("BluetoothLEAPI");
+    private static final String TAG = new String("BluetoothAPI");
 
 
     //newly added
@@ -205,7 +202,6 @@ public class BluetoothLEAPI extends JavascriptAPI{
         }
     }
 
-    //public BluetoothAPI(Handler handler, EngineService ctx, ControlChannel control) {
     public BluetoothLEAPI(Handler handler, EngineService ctx, ControlChannel control) {
         // public BluetoothLEAPI(Handler handler, EngineService ctx, ControlChannel control) {
         // super("Bluetooth", control);
@@ -294,7 +290,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
     }
 
 
-    private JSONArray readHeartRate() {
+    private String readHeartRate() {
 
         //todotodotodo  need to implement a wait for OnHeartRateAvailble or just polling to make sure heartrate is available??
         adapter.startDiscovery();
@@ -337,10 +333,10 @@ public class BluetoothLEAPI extends JavascriptAPI{
 
         //bugbugbugbug
         if (mheartRateString != null) {
-            return getObjFromHeartString();
+            return mheartRateString;
         }
         else{
-            return getObjFromHeartString();
+            return new String("Try again later.");
         }
 
     }
@@ -415,7 +411,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
 
     private JSONObject serializeBtDevice(BluetoothDevice device) throws JSONException {
         JSONObject obj = new JSONObject();
-        try {
+         try {
             obj.put("address", device.getAddress().toLowerCase());
             Log.d("address", device.getAddress().toLowerCase());
 
@@ -485,7 +481,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
             handler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    // AC_EDIT
+                    // TODO
                     scanning = false;
                     Log.d("scanLeDevice", "inside postelayed");
                     // adapter.stopLeScan(leScanCallback);
@@ -495,14 +491,14 @@ public class BluetoothLEAPI extends JavascriptAPI{
                 }
             }, BLE_SCAN_PERIOD);
 
-           //  AC_EDIT
+           //  TODO
             scanning = true;
             //
             boolean status = adapter.startLeScan(leScanCallback);
             return status;
 
         } else {
-            //  AC_EDIT
+            //  TODO
             scanning = false;
             // adapter.stopLeScan(leScanCallback);
             stopScanning();
@@ -518,7 +514,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
             // testing if this fix the character reading thing
             bluetoothGatt.connect();
 
-            // AC_EDIT
+            // TODO when to stop?
             // scanLeDevice(false);// bugbug will stop after first device detection
             //
             // testtest // stopDiscovery(); // bugbug will stop after first device detection
@@ -558,12 +554,12 @@ public class BluetoothLEAPI extends JavascriptAPI{
                 // gatt.readCharacteristic(gattServices.get(1).getCharacteristics().get(0));
 
                 for (BluetoothGattService service : gattServices) {
-                    Log.d("onServicesDis/service**", service.toString());
+                    // Log.d("onServicesDis/service**", service.toString());
 
                     List<BluetoothGattCharacteristic> chars = service.getCharacteristics();
 
                     for (BluetoothGattCharacteristic ch : chars) {
-                        Log.d("onServicesDis/chara**", ch.toString());
+                        // Log.d("onServicesDis/chara**", ch.toString());
 
                         //find descriptor UUID that matches Client Characteristic Configuration (0x2902)
                         // and then call setValue on that descriptor
@@ -571,19 +567,6 @@ public class BluetoothLEAPI extends JavascriptAPI{
 
                         setCharacteristicNotification(ch, true);
                         // broadcastUpdate(ACTION_DATA_AVAILABLE, ch);
-
-
-                        /*
-
-
-                        List<BluetoothGattDescriptor> descriptors = ch.getDescriptors();
-                        for (BluetoothGattDescriptor desc : descriptors) {
-                            Log.i("onServicesDis/desc", desc.toString());
-                            desc.setValue( BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                            bluetoothGatt.writeDescriptor(desc);
-                        }
-
-                        */
 
                     }
                 }
@@ -863,114 +846,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
 
 
 
-/*
 
-
-    private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
-        @Override
-        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            Log.i("onConnectionStateChange", "Status: " + status);
-            switch (newState) {
-                case BluetoothProfile.STATE_CONNECTED:
-                    Log.d("gattCallback", "STATE_CONNECTED");
-                    bluetoothGatt = gatt; // AC_EDIT
-                    gatt.discoverServices();
-                    break;
-                case BluetoothProfile.STATE_DISCONNECTED:
-                    // bugbug force to discover sevice
-                    bluetoothGatt = gatt; // AC_EDIT
-                    gatt.discoverServices();
-                    // end
-                    Log.d("gattCallback", "STATE_DISCONNECTED");
-                    Log.e("gattCallback", "STATE_DISCONNECTED");
-                    break;
-                default:
-                    Log.d("gattCallback", "STATE_DISCONNECTED");
-                    Log.e("gattCallback", "STATE_OTHER");
-                    // bugbug force to discover sevice
-                    bluetoothGatt = gatt; // AC_EDIT
-                    gatt.discoverServices();
-                    // end
-                    break;
-            }
-
-        }
-
-        @Override
-        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            // AC_EDIT
-            // List<BluetoothGattService> services = gatt.getServices();
-            // Log.i("onServicesDiscovered", services.toString());
-            // gatt.readCharacteristic(services.get(1).getCharacteristics().get(0));
-            Log.i("onServDisc", "Status: " + status);
-
-
-
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-
-                gattServices = gatt.getServices();
-                Log.d("onServicesDiscovered", gattServices.toString());
-
-                // gatt.readCharacteristic(gattServices.get(1).getCharacteristics().get(0));
-
-                for (BluetoothGattService service : gattServices) {
-                    Log.d("onServicesDis/service", service.toString());
-
-                    List<BluetoothGattCharacteristic> chars = service.getCharacteristics();
-
-                    for (BluetoothGattCharacteristic ch : chars) {
-                        Log.d("onServicesDis/chara", ch.toString());
-
-                        //find descriptor UUID that matches Client Characteristic Configuration (0x2902)
-                        // and then call setValue on that descriptor
-
-                        List<BluetoothGattDescriptor> descriptors = ch.getDescriptors();
-                        for (BluetoothGattDescriptor desc : descriptors) {
-                            Log.i("onServicesDis/desc", desc.toString());
-                            desc.setValue( BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                            bluetoothGatt.writeDescriptor(desc);
-                        }
-                    }
-                }
-            }
-
-        }
-
-        @Override
-        public void onCharacteristicRead(BluetoothGatt gatt,
-                                         BluetoothGattCharacteristic characteristic,
-                                         int status) {
-            Log.d("onCharacteristicRead", characteristic.toString());
-            Log.i("onCharacteristicRead", "Status: " + status);
-
-            // AC_EDIT
-            // gatt.disconnect();
-            //
-        }
-
-        @Override
-        public void onCharacteristicChanged(BluetoothGatt gatt,
-                                            final BluetoothGattCharacteristic characteristic) {
-            //read the characteristic data
-            byte[] data = characteristic.getValue();
-            Log.d("onCharacteristicChanged", characteristic.getValue().toString());
-        }
-        
-        @Override
-        public void onDescriptorRead(BluetoothGatt gatt,
-                                     BluetoothGattDescriptor descriptor,
-                                     int status) {
-            Log.i("onDescriptorRead", descriptor.toString());
-            // AC_EDIT
-            // gatt.disconnect();
-            //
-            // gatt.disconnect();
-
-        }
-    };
-*/
-
-    // AC_EDIT
     private BluetoothAdapter.LeScanCallback leScanCallback =
         new BluetoothAdapter.LeScanCallback() {
             @Override
@@ -990,30 +866,6 @@ public class BluetoothLEAPI extends JavascriptAPI{
         };
 
 
-    //private BluetoothAdapter.LeScanCallback leScanCallback =
-    //    new BluetoothAdapter.LeScanCallback() {
-    //        @Override
-    //        public void onLeScan1(final BluetoothDevice device, int rssi,
-    //            byte[] scanRecord) {
-    //            runOnUiThread(new Runnable() {
-     //               @Override
-      //              public void run() {
-       //                 // fetchingUuidsadapter.addDevice(device);
-        //                // adapter.addDevice(device);
-         //               // adapter.notifyDataSetChanged();
-         //               Log.i("onLeScan", device.toString());
-         //               connectToDevice(device);
-          //              // need to implement something here runOnUiThread is not found. so are addDevice and notify DataSetChangee
-
-              //      }
-              //  });
-              // // test
-
-            //}
-
-
-        // };
-
 
     private void startDiscovery(long timeout) throws InterruptedException {
         if (adapter == null)
@@ -1022,7 +874,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                // AC_EDIT
+                // TODO
                 stopDiscovery();
                 // discovering = false;
                 // adapter.stopLeScan(leScanCallback);
@@ -1030,7 +882,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
             }
         }, timeout*10);
 
-        /* AC_EDIT
+        /* TODO
         if (adapter.startDiscovery()) {
             discovering = true;
             return;
@@ -1053,7 +905,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
         if (!callback.startActivity(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), InteractionCallback.ENABLE_BLUETOOTH))
             throw new InterruptedException("User denied enabling Bluetooth");
 
-        /* AC_EDIT
+        /* TODO
         if (adapter.startDiscovery()) {
             discovering = true;
         }
@@ -1069,7 +921,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
     private void stopDiscovery() {
         discovering = false;
         scanning = false;
-        /* AC_EDIT
+        /* TODO
         if (adapter != null)
             adapter.cancelDiscovery();
         */
@@ -1154,10 +1006,6 @@ public class BluetoothLEAPI extends JavascriptAPI{
 
                     long now = System.currentTimeMillis();
                     if (FETCH_UUID_TIMEOUT - (now - startTime) < 1) {
-                        // testtest
-
-                        //return uuidsToJson(new UUID(0,0));
-
                         throw new InterruptedException("Fetching UUIDs timed out");
                     }
                     wait(FETCH_UUID_TIMEOUT - (now - startTime));

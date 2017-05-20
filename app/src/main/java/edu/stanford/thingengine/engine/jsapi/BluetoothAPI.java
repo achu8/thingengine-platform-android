@@ -1,36 +1,14 @@
 package edu.stanford.thingengine.engine.jsapi;
 
-// newly added
-import java.util.ArrayList;
-import java.util.List;
-import android.bluetooth.BluetoothGatt;
-import android.location.Location;
-import android.os.Parcel;
-import android.util.Log;
-import android.bluetooth.BluetoothProfile;
-import android.bluetooth.BluetoothGattCallback;
-// import android.bluetooth.BluetoothGattCharacteristic;
-import android.bluetooth.BluetoothGattService;
-import android.bluetooth.BluetoothGattDescriptor;
-
-import android.app.Activity;
-//
-
-import android.bluetooth.BluetoothGattCharacteristic;
-
-import android.bluetooth.BluetoothManager;
-import android.bluetooth.BluetoothProfile;
-
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-
+import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Handler;
 import android.os.ParcelUuid;
-import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
@@ -42,109 +20,33 @@ import org.json.JSONObject;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.List;
 
 import edu.stanford.thingengine.engine.service.ControlChannel;
 import edu.stanford.thingengine.engine.service.EngineService;
 import edu.stanford.thingengine.engine.ui.InteractionCallback;
 
-import java.util.HashMap;
-import java.util.UUID;
-import android.os.Binder;
-import android.os.IBinder;
-
 /**
- * This class includes a small subset of standard GATT attributes for demonstration purposes.
+ * Created by gcampagn on 6/24/16.
  */
-
-// public class BluetoothLEAPI extends JavascriptAPI{
 public class BluetoothAPI extends JavascriptAPI {
-
-    public Context m_context = null;
     public static final String LOG_TAG = "thingengine.Service";
-
-    // AC_EDIT
-
-    private BluetoothGatt bluetoothGatt;
-    public List<BluetoothGattService> gattServices;
-    private static final long BLE_SCAN_PERIOD = 100000;
 
     private final EngineService ctx;
     private final Handler handler;
     private final BluetoothAdapter adapter;
     private final Map<String, BluetoothDevice> pairing = new HashMap<>();
     private final Map<String, BluetoothDevice> fetchingUuids = new HashMap<>();
-    private String bluetoothDeviceAddress;
-
-    private final long FETCH_UUID_TIMEOUT = 200000;
 
     private Receiver receiver;
     private volatile boolean discovering;
-    private volatile boolean scanning;
-
-    private static final int STATE_DISCONNECTED = 0;
-    private static final int STATE_CONNECTING = 1;
-    private static final int STATE_CONNECTED = 2;
-    private static int connectionState;
-
-
-    public final static String ACTION_GATT_CONNECTED =
-            "com.example.bluetooth.le.ACTION_GATT_CONNECTED";
-    public final static String ACTION_GATT_DISCONNECTED =
-            "com.example.bluetooth.le.ACTION_GATT_DISCONNECTED";
-    public final static String ACTION_GATT_SERVICES_DISCOVERED =
-            "com.example.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED";
-    public final static String ACTION_DATA_AVAILABLE =
-            "com.example.bluetooth.le.ACTION_DATA_AVAILABLE";
-    public final static String EXTRA_DATA =
-            "com.example.bluetooth.le.EXTRA_DATA";
-
-
-    private static final String TAG = new String("BluetoothAPI");
-
-
-    //newly added
-    private ArrayList<ArrayList<BluetoothGattCharacteristic>> mGattCharacteristics =
-            new ArrayList<ArrayList<BluetoothGattCharacteristic>>();
-
-    private static HashMap<String, String> attributes = new HashMap();
-    public static String HEART_RATE_MEASUREMENT = "00002a37-0000-1000-8000-00805f9b34fb";
-    public static String CLIENT_CHARACTERISTIC_CONFIG = "00002902-0000-1000-8000-00805f9b34fb";
-
-    static {
-        // Sample Services.
-        attributes.put("0000180d-0000-1000-8000-00805f9b34fb", "Heart Rate Service");
-        attributes.put("0000180a-0000-1000-8000-00805f9b34fb", "Device Information Service");
-        // Sample Characteristics.
-        attributes.put(HEART_RATE_MEASUREMENT, "Heart Rate Measurement");
-        attributes.put("00002a29-0000-1000-8000-00805f9b34fb", "Manufacturer Name String");
-    }
-
-    public static String lookup(String uuid, String defaultName) {
-        String name = attributes.get(uuid);
-        return name == null ? defaultName : name;
-    }
-
-    // end of newly added
-
-
-    public final static UUID UUID_HEART_RATE_MEASUREMENT =
-            UUID.fromString(HEART_RATE_MEASUREMENT);
-
-
-    private String mheartRateString;
-
 
     private class Receiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
-            // bugbugbugbug
-            m_context = context;
-
             switch (intent.getAction()) {
                 case BluetoothAdapter.ACTION_STATE_CHANGED:
                     onStateChanged(intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1),
-                            intent.getIntExtra(BluetoothAdapter.EXTRA_PREVIOUS_STATE, -1));
+                        intent.getIntExtra(BluetoothAdapter.EXTRA_PREVIOUS_STATE, -1));
                     return;
 
                 case BluetoothAdapter.ACTION_DISCOVERY_FINISHED:
@@ -152,73 +54,26 @@ public class BluetoothAPI extends JavascriptAPI {
                     return;
 
                 case BluetoothDevice.ACTION_FOUND:
-                    onDeviceFound((BluetoothDevice) intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE));
+                    onDeviceFound((BluetoothDevice)intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE));
                     return;
 
                 case BluetoothDevice.ACTION_CLASS_CHANGED:
                 case BluetoothDevice.ACTION_BOND_STATE_CHANGED:
                 case BluetoothDevice.ACTION_NAME_CHANGED:
                 case BluetoothDevice.ACTION_UUID:
-                    onDeviceChanged((BluetoothDevice) intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE));
-                    return;
-
-
-                case ACTION_GATT_CONNECTED:
-                    Log.d(TAG, "action_gatt_connected");
-                    return;
-
-                case ACTION_GATT_DISCONNECTED:
-                    Log.d(TAG, "action_gatt_disconnected");
-                    return;
-
-                case ACTION_GATT_SERVICES_DISCOVERED:
-                    Log.d(TAG, "action_gatt_service_discovered");
-                    //??? BluetoothGatt does not have "extra_" members.
-                    // onServicesDiscovered((BluetoothGatt)intent.getParcelableExtra(BluetoothGatt.EXTRA_DEVICE), Integer.valueOf(intent.getStringExtra(BluetoothGatt.EXTRAS_DEVICE_BATTERY)
-                    return;
-
-                case ACTION_DATA_AVAILABLE:
-                    // onCharacteristicRead()howhow to
-                    // TODOTODO
-                    // how to get the characteristic object from the Intent ?
-                    // there is no parcelable extra member in BluetoothGattCharacteristic
-                    // what should I do here?
-                    Log.d(TAG, "action_gatt_data_available");
-                    Bundle extras = intent.getExtras();
-                    Log.d("HEARTRATE EXTRA", extras.toString());
-                    String heartRateString = "";
-                    if (extras != null) {
-                        heartRateString = extras.getString(EXTRA_DATA);
-
-                    }
-
-
-                    Log.d("***HEARTRATE******", heartRateString);
-
-
-                    mheartRateString = heartRateString;
-                    // onHeartRateAvailable();
-
-                    onDeviceFound(bluetoothGatt.getDevice());
+                    onDeviceChanged((BluetoothDevice)intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE));
                     return;
             }
         }
     }
 
     public BluetoothAPI(Handler handler, EngineService ctx, ControlChannel control) {
-        // public BluetoothLEAPI(Handler handler, EngineService ctx, ControlChannel control) {
-        // public BluetoothLEAPI(Handler handler, EngineService ctx, ControlChannel control) {
         super("Bluetooth", control);
-        // super("Bluetooth", control);
+
         this.ctx = ctx;
         this.handler = handler;
-        bluetoothDeviceAddress = null;
-
-
-        adapter = ((BluetoothManager) ctx.getSystemService(Context.BLUETOOTH_SERVICE)).getAdapter();
-
+        adapter = ((BluetoothManager)ctx.getSystemService(Context.BLUETOOTH_SERVICE)).getAdapter();
         discovering = false;
-        scanning = false;
 
         registerAsync("start", new GenericCall() {
             @Override
@@ -239,11 +94,10 @@ public class BluetoothAPI extends JavascriptAPI {
         registerAsync("startDiscovery", new GenericCall() {
             @Override
             public Object run(Object... args) throws Exception {
-                startDiscovery(((Number) args[0]).longValue());
+                startDiscovery(((Number)args[0]).longValue());
                 return null;
             }
         });
-
 
         registerSync("stopDiscovery", new GenericCall() {
             @Override
@@ -256,7 +110,7 @@ public class BluetoothAPI extends JavascriptAPI {
         registerAsync("pairDevice", new GenericCall() {
             @Override
             public Object run(Object... args) throws Exception {
-                pairDevice((String) args[0]);
+                pairDevice((String)args[0]);
                 return null;
             }
         });
@@ -264,118 +118,28 @@ public class BluetoothAPI extends JavascriptAPI {
         registerAsync("readUUIDs", new GenericCall() {
             @Override
             public Object run(Object... args) throws Exception {
-                return readUUIDs((String) args[0]);
+                return readUUIDs((String)args[0]);
             }
         });
-
-        registerAsync("getHeartRate", new GenericCall() {
-            @Override
-            public Object run(Object... args) throws Exception {
-                return readHeartRate();
-            }
-        });
-
-
     }
-
-    private JSONArray getObjFromHeartString()
-    {
-        try {
-            JSONArray ret = new JSONArray();
-
-            JSONObject jsonObj = new JSONObject();
-            jsonObj.put("heartrate", mheartRateString);
-            ret.put(jsonObj);
-            return ret;
-        } catch(JSONException e) {
-            Log.i(LOG_TAG, "Failed to serialize heartrate", e);
-        }
-        return null;
-    }
-
-
-    private JSONArray readHeartRate() {
-
-        //todotodotodo  need to implement a wait for OnHeartRateAvailble or just polling to make sure heartrate is available??
-        adapter.startDiscovery();
-
-        /*
-        long startTime = System.currentTimeMillis();
-        synchronized (this) {
-            try {
-                while (true) {
-
-                    long now = System.currentTimeMillis();
-
-                    if (BLE_SCAN_PERIOD - (now - startTime) < 1) {
-                        // testtest
-
-                        //return uuidsToJson(new UUID(0,0));
-
-                        //throw new InterruptedException("read heart rate timed out");
-                    }
-                    wait(BLE_SCAN_PERIOD - (now - startTime));
-                    now = System.currentTimeMillis();
-                    if (now - startTime > BLE_SCAN_PERIOD ) {
-                        //throw new InterruptedException("read heart rate timed out");
-
-                    }
-
-
-                    if (mheartRateString != null) {
-                        return getObjFromHeartString();
-                    }
-
-                }
-
-            } finally {
-
-                // fetchingUuids.remove(address);
-            }
-        }
-        */
-
-        //bugbugbugbug
-        if (mheartRateString != null) {
-            return getObjFromHeartString();
-        }
-        else{
-            return getObjFromHeartString();
-        }
-
-    }
-
-
 
     private void start() {
         receiver = new Receiver();
 
-        final IntentFilter filter = new IntentFilter();
-        filter.addAction(ACTION_GATT_CONNECTED);
-        filter.addAction(ACTION_GATT_DISCONNECTED);
-        filter.addAction(ACTION_GATT_SERVICES_DISCOVERED);
-        filter.addAction(ACTION_DATA_AVAILABLE);
-
-
-        // old actions to be removed
-
+        IntentFilter filter = new IntentFilter();
         filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
         filter.addAction(BluetoothDevice.ACTION_FOUND);
         filter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
         filter.addAction(BluetoothDevice.ACTION_NAME_CHANGED);
         filter.addAction(BluetoothDevice.ACTION_CLASS_CHANGED);
-
-
-
         ctx.registerReceiver(receiver, filter, null, handler);
-/* testtest
+
         if (adapter != null) {
             Collection<BluetoothDevice> devices = adapter.getBondedDevices();
             for (BluetoothDevice d : devices)
                 onDeviceFound(d);
         }
-*/
     }
 
     private void stop() {
@@ -385,17 +149,9 @@ public class BluetoothAPI extends JavascriptAPI {
 
     private void onStateChanged(int newState, int oldState) {
         invokeAsync("onstatechanged", new int[] { newState, oldState });
-/*testtesttest
+
         if (discovering && newState == BluetoothAdapter.STATE_ON && adapter != null)
             adapter.startDiscovery();
-
-*/
-    }
-
-    private void onHeartRateAvailable() {
-        invokeAsync("onHeartRateAvailable", null);
-
-
     }
 
     private void onDiscoveryFinished() {
@@ -415,28 +171,11 @@ public class BluetoothAPI extends JavascriptAPI {
 
     private JSONObject serializeBtDevice(BluetoothDevice device) throws JSONException {
         JSONObject obj = new JSONObject();
-        try {
-            obj.put("address", device.getAddress().toLowerCase());
-            Log.d("address", device.getAddress().toLowerCase());
-
-            obj.put("uuids", uuidsToJson(device.getUuids()));
-            // Log.d("uuids", uuidsToJson(device.getUuids()).toString());
-            obj.put("heartrate",mheartRateString);
-
-            /*
-            obj.put("class", device.getBluetoothClass().getDeviceClass());
-            // Log.d("class", device.getBluetoothClass().toString());
-
-
-            obj.put("alias", device.getName());
-            // Log.d("alias", device.getName().toString());
-
-            obj.put("paired", device.getBondState() == BluetoothDevice.BOND_BONDED);
-            */
-
-        } catch (JSONException e) {
-            Log.i(LOG_TAG, "Failed to serialize BT device", e);
-        }
+        obj.put("address", device.getAddress().toLowerCase());
+        obj.put("uuids", uuidsToJson(device.getUuids()));
+        obj.put("class", device.getBluetoothClass().getDeviceClass());
+        obj.put("alias", device.getName());
+        obj.put("paired", device.getBondState() == BluetoothDevice.BOND_BONDED);
         return obj;
     }
 
@@ -471,550 +210,6 @@ public class BluetoothAPI extends JavascriptAPI {
         }
     }
 
-
-
-
-
-
-
-    // le bluetooth specific
-
-
-    private boolean scanLeDevice(final boolean enable) {
-        if (enable) {
-            handler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    // AC_EDIT
-                    scanning = false;
-                    Log.d("scanLeDevice", "inside postelayed");
-                    // adapter.stopLeScan(leScanCallback);
-                    // testtest bugbug 
-                    stopScanning();
-
-                }
-            }, BLE_SCAN_PERIOD);
-
-           //  AC_EDIT
-            scanning = true;
-            //
-            boolean status = adapter.startLeScan(leScanCallback);
-            return status;
-
-        } else {
-            //  AC_EDIT
-            scanning = false;
-            // adapter.stopLeScan(leScanCallback);
-            stopScanning();
-        }
-
-        return true;
-    }
-
-//newly added bugbug
-    public void connectToDevice(BluetoothDevice device) {
-        if (bluetoothGatt == null) {
-            bluetoothGatt = device.connectGatt(this.ctx, false, mGattCallback);
-            // testing if this fix the character reading thing
-            bluetoothGatt.connect();
-
-            // AC_EDIT
-            // scanLeDevice(false);// bugbug will stop after first device detection
-            //
-            // testtest // stopDiscovery(); // bugbug will stop after first device detection
-        }
-    }
-
-
-   
-    private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
-        @Override
-        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            String intentAction;
-            if (newState == BluetoothProfile.STATE_CONNECTED) {
-                intentAction = ACTION_GATT_CONNECTED;
-                connectionState = STATE_CONNECTED;
-                broadcastUpdate(intentAction);
-                Log.i("BluetoothGattCallBack", "Connected to GATT server.");
-                // Attempts to discover services after successful connection.
-                Log.i("BluetoothGattCallBack", "Attempting to start service discovery:" +
-                        bluetoothGatt.discoverServices());
-
-            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                intentAction = ACTION_GATT_DISCONNECTED;
-                connectionState = STATE_DISCONNECTED;
-                Log.i(TAG, "Disconnected from GATT server.");
-                // broadcastUpdate(intentAction);
-            }
-        }
-
-        @Override
-        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                // breakpoint
-                gattServices = gatt.getServices();
-                Log.d("onServicesDiscovered", gattServices.toString());
-
-                // gatt.readCharacteristic(gattServices.get(1).getCharacteristics().get(0));
-
-                for (BluetoothGattService service : gattServices) {
-                    Log.d("onServicesDis/service**", service.toString());
-
-                    List<BluetoothGattCharacteristic> chars = service.getCharacteristics();
-
-                    for (BluetoothGattCharacteristic ch : chars) {
-                        Log.d("onServicesDis/chara**", ch.toString());
-
-                        //find descriptor UUID that matches Client Characteristic Configuration (0x2902)
-                        // and then call setValue on that descriptor
-
-
-                        setCharacteristicNotification(ch, true);
-                        // broadcastUpdate(ACTION_DATA_AVAILABLE, ch);
-
-
-                        /*
-
-
-                        List<BluetoothGattDescriptor> descriptors = ch.getDescriptors();
-                        for (BluetoothGattDescriptor desc : descriptors) {
-                            Log.i("onServicesDis/desc", desc.toString());
-                            desc.setValue( BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                            bluetoothGatt.writeDescriptor(desc);
-                        }
-
-                        */
-
-                    }
-                }
-
-
-                Log.w(TAG, "onServicesDiscovered received success: " + status);
-                broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED);
-            } else {
-                // breakpoint
-                // Log.w(TAG, "onServicesDiscovered received: " + status);
-            }
-        }
-
-        @Override
-        public void onCharacteristicRead(BluetoothGatt gatt,
-                                         BluetoothGattCharacteristic characteristic,
-                                         int status) {
-            Log.d(TAG, "onCharacteristicRead: " + status);
-            Log.d(TAG, "charateristic:" + characteristic.toString());
-
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
-            }
-            else{ //bugbugbugbug
-                // broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
-            }
-            Log.d(TAG, "End onCharacteristicRead: " + status);
-        }
-
-        @Override
-        public void onCharacteristicChanged(BluetoothGatt gatt,
-                                            BluetoothGattCharacteristic characteristic) {
-            Log.d(TAG, "onCharacteristicChanged: " ); 
-            Log.d(TAG, characteristic.toString());
-            broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
-        }
-    };
-
-    private void broadcastUpdate(final String action) {
-        Log.d("broadcastUpdate", action);
-        final Intent intent = new Intent(action);
-        // bugbugbugbugbug   (Need to figure out this later)
-        if (m_context != null) {
-            m_context.sendBroadcast(intent);
-        }
-
-
-    }
-
-    private void broadcastUpdate(final String action,
-                                 final BluetoothGattCharacteristic characteristic) {
-                                     
-        Log.d("broadcastUpdate_realdata", action);
-        Log.d("broadcastUpdate", characteristic.toString());
-        final Intent intent = new Intent(action);
-
-        // This is special handling for the Heart Rate Measurement profile.  Data parsing is
-        // carried out as per profile specifications:
-        // http://developer.bluetooth.org/gatt/characteristics/Pages/CharacteristicViewer.aspx?u=org.bluetooth.characteristic.heart_rate_measurement.xml
-        if (UUID_HEART_RATE_MEASUREMENT.equals(characteristic.getUuid())) {
-            Log.d(TAG, "heart_rate_measurement");
-            int flag = characteristic.getProperties();
-            int format = -1;
-            if ((flag & 0x01) != 0) {
-                format = BluetoothGattCharacteristic.FORMAT_UINT16;
-                Log.d(TAG, "Heart rate format UINT16.");
-            } else {
-                format = BluetoothGattCharacteristic.FORMAT_UINT8;
-                Log.d(TAG, "Heart rate format UINT8.");
-            }
-            final int heartRate = characteristic.getIntValue(format, 1);
-            Log.d(TAG, String.format("Received heart rate: %d", heartRate));
-            intent.putExtra(EXTRA_DATA, String.valueOf(heartRate));
-            mheartRateString = String.valueOf(heartRate);
-
-            onDeviceFound(bluetoothGatt.getDevice());
-        } else {
-            // For all other profiles, writes the data formatted in HEX.
-            Log.d(TAG, "not heart rate stuff");
-            final byte[] data = characteristic.getValue();
-            if (data != null && data.length > 0) {
-                final StringBuilder stringBuilder = new StringBuilder(data.length);
-                for(byte byteChar : data)
-                    stringBuilder.append(String.format("%02X ", byteChar));
-                intent.putExtra(EXTRA_DATA, new String(data) + "\n" + stringBuilder.toString());
-                Log.d(TAG, stringBuilder.toString());
-            }
-        }
-
-
-        // bugbugbugbugbug
-        if (m_context != null){
-            m_context.sendBroadcast(intent);
-        }
-
-
-    }
-
-    public class LocalBinder extends Binder {
-
-        // Log.d("IBinder", "LocalBind");
-        BluetoothAPI getService() {
-            return BluetoothAPI.this;
-        }
-    }
-
-    // bugbugbugbug @Override
-    public IBinder onBind(Intent intent) {
-        Log.d("IBinder", "onBind");
-        return mBinder;
-    }
-
-    //bugbugbugbug @Override
-    public boolean onUnbind(Intent intent) {
-        // After using a given device, you should make sure that BluetoothGatt.close() is called
-        // such that resources are cleaned up properly.  In this particular example, close() is
-        // invoked when the UI is disconnected from the Service.
-        Log.d(TAG, "onUnBind");
-        close();
-        return /*super.*/onUnbind(intent);
-    }
-
-    private final IBinder mBinder = new LocalBinder();
-
-    /**
-     * Initializes a reference to the local Bluetooth adapter.
-     *
-     * @return Return true if the initialization is successful.
-     */
-    public boolean initialize() {
-        // For API level 18 and above, get a reference to BluetoothAdapter through
-        Log.d(TAG, "Initialize");
-        BluetoothManager bluetoothManager = (BluetoothManager)ctx.getSystemService(Context.BLUETOOTH_SERVICE);
-        if (bluetoothManager == null) {
-                Log.e(TAG, "Unable to initialize BluetoothManager.");
-                return false;
-            }
-        if (adapter == null) {
-            Log.e(TAG, "Unable to obtain a BluetoothAdapter.");
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * Connects to the GATT server hosted on the Bluetooth LE device.
-     *
-     * @param address The device address of the destination device.
-     *
-     * @return Return true if the connection is initiated successfully. The connection result
-     *         is reported asynchronously through the
-     *         {@code BluetoothGattCallback#onConnectionStateChange(android.bluetooth.BluetoothGatt, int, int)}
-     *         callback.
-     */
-    public boolean connect(final String address) {
-        if (adapter == null || address == null) {
-            Log.w("connect", "BluetoothAdapter not initialized or unspecified address.");
-            return false;
-        }
-
-       
-        // Previously connected device.  Try to reconnect.
-
-        if (bluetoothDeviceAddress != null && address.equals(bluetoothDeviceAddress)
-                && bluetoothGatt != null) {
-            Log.d("connect", "Trying to use an existing mBluetoothGatt for connection.");
-           // if (connectionState == STATE_CONNECTING){
-           //     Log.d("connect-bugbug", "skip connecting again");
-           //     return true;
-           // }
-           //
-            if (bluetoothGatt.connect()) {
-                connectionState = STATE_CONNECTING;
-                return true;
-            } else {
-                return false;
-            }
-        }
-
-
-        final BluetoothDevice device = adapter.getRemoteDevice(address);
-        if (device == null) {
-            Log.w("connect", "Device not found.  Unable to connect.");
-            return false;
-        }
-        // We want to directly connect to the device, so we are setting the autoConnect
-        // parameter to false.
-        bluetoothGatt = device.connectGatt(this.ctx, false, mGattCallback);
-        Log.d("connect", "Trying to create a new connection.");
-        bluetoothDeviceAddress = address;
-        connectionState = STATE_CONNECTING;
-        return true;
-    }
-
-    /**
-     * Disconnects an existing connection or cancel a pending connection. The disconnection result
-     * is reported asynchronously through the
-     * {@code BluetoothGattCallback#onConnectionStateChange(android.bluetooth.BluetoothGatt, int, int)}
-     * callback.
-     */
-    public void disconnect() {
-        if (adapter == null || bluetoothGatt == null) {
-            Log.w(TAG, "BluetoothAdapter not initialized");
-            return;
-        }
-        bluetoothGatt.disconnect();
-    }
-
-    /**
-     * After using a given BLE device, the app must call this method to ensure resources are
-     * released properly.
-     */
-    public void close() {
-        if (bluetoothGatt == null) {
-            return;
-        }
-        bluetoothGatt.close();
-        bluetoothGatt = null;
-    }
-
-    
-    /**
-     * Request a read on a given {@code BluetoothGattCharacteristic}. The read result is reported
-     * asynchronously through the {@code BluetoothGattCallback#onCharacteristicRead(android.bluetooth.BluetoothGatt, android.bluetooth.BluetoothGattCharacteristic, int)}
-     * callback.
-     *
-     * @param characteristic The characteristic to read from.
-     */
-    public void readCharacteristic(BluetoothGattCharacteristic characteristic) {
-        if (adapter == null || bluetoothGatt == null) {
-            Log.w(TAG, "BluetoothAdapter not initialized");
-            return;
-        }
-        bluetoothGatt.readCharacteristic(characteristic);
-        Log.w(TAG, "readCharacteristic");
-    }
-
-    /**
-     * Enables or disables notification on a give characteristic.
-     *
-     * @param characteristic Characteristic to act on.
-     * @param enabled If true, enable notification.  False otherwise.
-     */
-    public void setCharacteristicNotification(BluetoothGattCharacteristic characteristic,
-                                              boolean enabled) {
-        if (adapter == null || bluetoothGatt == null) {
-            Log.w(TAG, "BluetoothAdapter not initialized");
-            return;
-        }
-        bluetoothGatt.setCharacteristicNotification(characteristic, enabled);
-        Log.w(TAG, "setCaracteristicNotification");
-        // This is specific to Heart Rate Measurement.
-        if (UUID_HEART_RATE_MEASUREMENT.equals(characteristic.getUuid())) {
-            BluetoothGattDescriptor descriptor = characteristic.getDescriptor(
-                    UUID.fromString(CLIENT_CHARACTERISTIC_CONFIG));
-            Log.d(TAG, "before descriptor setVale");        
-            descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-            bluetoothGatt.writeDescriptor(descriptor);
-            // Log.d(TAG, "descriptor=", descriptor.toString());
-            Log.d(TAG, "after descriptor setVale"); 
-
-        }
-    }
-
-    /**
-     * Retrieves a list of supported GATT services on the connected device. This should be
-     * invoked only after {@code BluetoothGatt#discoverServices()} completes successfully.
-     *
-     * @return A {@code List} of supported services.
-     */
-    public List<BluetoothGattService> getSupportedGattServices() {
-        if (bluetoothGatt == null) return null;
-
-        return bluetoothGatt.getServices();
-    }
-
-
-
-/*
-
-
-    private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
-        @Override
-        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            Log.i("onConnectionStateChange", "Status: " + status);
-            switch (newState) {
-                case BluetoothProfile.STATE_CONNECTED:
-                    Log.d("gattCallback", "STATE_CONNECTED");
-                    bluetoothGatt = gatt; // AC_EDIT
-                    gatt.discoverServices();
-                    break;
-                case BluetoothProfile.STATE_DISCONNECTED:
-                    // bugbug force to discover sevice
-                    bluetoothGatt = gatt; // AC_EDIT
-                    gatt.discoverServices();
-                    // end
-                    Log.d("gattCallback", "STATE_DISCONNECTED");
-                    Log.e("gattCallback", "STATE_DISCONNECTED");
-                    break;
-                default:
-                    Log.d("gattCallback", "STATE_DISCONNECTED");
-                    Log.e("gattCallback", "STATE_OTHER");
-                    // bugbug force to discover sevice
-                    bluetoothGatt = gatt; // AC_EDIT
-                    gatt.discoverServices();
-                    // end
-                    break;
-            }
-
-        }
-
-        @Override
-        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            // AC_EDIT
-            // List<BluetoothGattService> services = gatt.getServices();
-            // Log.i("onServicesDiscovered", services.toString());
-            // gatt.readCharacteristic(services.get(1).getCharacteristics().get(0));
-            Log.i("onServDisc", "Status: " + status);
-
-
-
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-
-                gattServices = gatt.getServices();
-                Log.d("onServicesDiscovered", gattServices.toString());
-
-                // gatt.readCharacteristic(gattServices.get(1).getCharacteristics().get(0));
-
-                for (BluetoothGattService service : gattServices) {
-                    Log.d("onServicesDis/service", service.toString());
-
-                    List<BluetoothGattCharacteristic> chars = service.getCharacteristics();
-
-                    for (BluetoothGattCharacteristic ch : chars) {
-                        Log.d("onServicesDis/chara", ch.toString());
-
-                        //find descriptor UUID that matches Client Characteristic Configuration (0x2902)
-                        // and then call setValue on that descriptor
-
-                        List<BluetoothGattDescriptor> descriptors = ch.getDescriptors();
-                        for (BluetoothGattDescriptor desc : descriptors) {
-                            Log.i("onServicesDis/desc", desc.toString());
-                            desc.setValue( BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                            bluetoothGatt.writeDescriptor(desc);
-                        }
-                    }
-                }
-            }
-
-        }
-
-        @Override
-        public void onCharacteristicRead(BluetoothGatt gatt,
-                                         BluetoothGattCharacteristic characteristic,
-                                         int status) {
-            Log.d("onCharacteristicRead", characteristic.toString());
-            Log.i("onCharacteristicRead", "Status: " + status);
-
-            // AC_EDIT
-            // gatt.disconnect();
-            //
-        }
-
-        @Override
-        public void onCharacteristicChanged(BluetoothGatt gatt,
-                                            final BluetoothGattCharacteristic characteristic) {
-            //read the characteristic data
-            byte[] data = characteristic.getValue();
-            Log.d("onCharacteristicChanged", characteristic.getValue().toString());
-        }
-        
-        @Override
-        public void onDescriptorRead(BluetoothGatt gatt,
-                                     BluetoothGattDescriptor descriptor,
-                                     int status) {
-            Log.i("onDescriptorRead", descriptor.toString());
-            // AC_EDIT
-            // gatt.disconnect();
-            //
-            // gatt.disconnect();
-
-        }
-    };
-*/
-
-    // AC_EDIT
-    private BluetoothAdapter.LeScanCallback leScanCallback =
-        new BluetoothAdapter.LeScanCallback() {
-            @Override
-            public void onLeScan(final BluetoothDevice device, int rssi,
-                                 byte[] scanRecord) {
-
-                Log.d("onLeScan", device.toString());
-                // testtest
-                connectToDevice(device);
-                String address = device.getAddress();
-
-                connect(address);
-                onDeviceFound(device);
-
-
-            }
-        };
-
-
-    //private BluetoothAdapter.LeScanCallback leScanCallback =
-    //    new BluetoothAdapter.LeScanCallback() {
-    //        @Override
-    //        public void onLeScan1(final BluetoothDevice device, int rssi,
-    //            byte[] scanRecord) {
-    //            runOnUiThread(new Runnable() {
-     //               @Override
-      //              public void run() {
-       //                 // fetchingUuidsadapter.addDevice(device);
-        //                // adapter.addDevice(device);
-         //               // adapter.notifyDataSetChanged();
-         //               Log.i("onLeScan", device.toString());
-         //               connectToDevice(device);
-          //              // need to implement something here runOnUiThread is not found. so are addDevice and notify DataSetChangee
-
-              //      }
-              //  });
-              // // test
-
-            //}
-
-
-        // };
-
-
     private void startDiscovery(long timeout) throws InterruptedException {
         if (adapter == null)
             throw new UnsupportedOperationException("This device has no Bluetooth adapter");
@@ -1022,29 +217,14 @@ public class BluetoothAPI extends JavascriptAPI {
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                // AC_EDIT
                 stopDiscovery();
-                // discovering = false;
-                // adapter.stopLeScan(leScanCallback);
-                stopScanning();
             }
-        }, timeout*10);
+        }, timeout);
 
-        /* AC_EDIT
         if (adapter.startDiscovery()) {
             discovering = true;
             return;
         }
-        */
-
-
-        if (scanLeDevice(true)) {
-            scanning = true;
-            discovering = true;
-            return;
-        }
-
-
 
         InteractionCallback callback = ctx.getInteractionCallback();
         if (callback == null)
@@ -1053,46 +233,15 @@ public class BluetoothAPI extends JavascriptAPI {
         if (!callback.startActivity(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), InteractionCallback.ENABLE_BLUETOOTH))
             throw new InterruptedException("User denied enabling Bluetooth");
 
-        /* AC_EDIT
         if (adapter.startDiscovery()) {
             discovering = true;
         }
-        */
-
-        //if (scanLeDevice(true)) {
-        //    discovering = true;
-         //   return;
-        // }
-
     }
 
     private void stopDiscovery() {
         discovering = false;
-        scanning = false;
-        /* AC_EDIT
         if (adapter != null)
             adapter.cancelDiscovery();
-        */
-        scanLeDevice(false);
-        /* testtest
-        if (adapter != null)
-            adapter.cancelDiscovery();
-        */
-
-       // bluetoothGatt.disconnect();
-       // bluetoothGatt.close();
-    }
-
-    private void stopScanning() {
-
-
-        try {
-            adapter.stopLeScan(leScanCallback);
-            Log.d("stopScanning", "Scanning stopped");
-        } catch (NullPointerException exception) {
-            Log.e("stopScanning", "Can't stop scan. Unexpected NullPointerException", exception);
-        }
-
     }
 
     private void pairDevice(String address) throws InterruptedException {
@@ -1126,20 +275,17 @@ public class BluetoothAPI extends JavascriptAPI {
         }
     }
 
+    private final long FETCH_UUID_TIMEOUT = 20000;
+
     @NonNull
     private JSONArray readUUIDs(String address) throws InterruptedException {
-
         if (adapter == null)
             throw new UnsupportedOperationException("This device has no Bluetooth adapter");
 
-        // BluetoothDevice dev = adapter.getRemoteDevice(address.toUpperCase());
-        BluetoothDevice dev = bluetoothGatt.getDevice(); // BUGBUG
-        address = dev.getAddress().toLowerCase(); //BUGBUG
-
+        BluetoothDevice dev = adapter.getRemoteDevice(address.toUpperCase());
         long startTime = System.currentTimeMillis();
         synchronized (this) {
             try {
-
                 while (true) {
                     if (!fetchingUuids.containsKey(address)) {
                         fetchingUuids.put(address, dev);
@@ -1153,22 +299,13 @@ public class BluetoothAPI extends JavascriptAPI {
                     }
 
                     long now = System.currentTimeMillis();
-                    if (FETCH_UUID_TIMEOUT - (now - startTime) < 1) {
-                        // testtest
-
-                        //return uuidsToJson(new UUID(0,0));
-
+                    if (FETCH_UUID_TIMEOUT - (now - startTime) < 1)
                         throw new InterruptedException("Fetching UUIDs timed out");
-                    }
                     wait(FETCH_UUID_TIMEOUT - (now - startTime));
                     now = System.currentTimeMillis();
-                    if (now - startTime > FETCH_UUID_TIMEOUT) {
+                    if (now - startTime > FETCH_UUID_TIMEOUT)
                         throw new InterruptedException("Fetching UUIDs timed out");
-
-                    }
-
                 }
-                //return readHeartRate();
             } finally {
                 fetchingUuids.remove(address);
             }

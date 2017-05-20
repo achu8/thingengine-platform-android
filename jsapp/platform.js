@@ -22,7 +22,7 @@ const _audioManagerApi = JavaAPI.makeJavaAPI('AudioManager', [],
     ['setRingerMode', 'adjustMediaVolume', 'setMediaVolume'], []);
 const _smsApi = JavaAPI.makeJavaAPI('Sms', ['start', 'stop', 'sendMessage'], [], ['onsmsreceived']);
 const _btApi = JavaAPI.makeJavaAPI('Bluetooth',
-    ['start', 'startDiscovery', 'pairDevice', 'readUUIDs', 'getHeartRate'],
+    ['start', 'startDiscovery', 'pairDevice', 'readUUIDs'],
     ['stop', 'stopDiscovery'],
     ['ondeviceadded', 'ondevicechanged', 'onstatechanged', 'ondiscoveryfinished']);
 const _btLEApi = JavaAPI.makeJavaAPI('BluetoothLE',
@@ -194,6 +194,7 @@ module.exports = {
         case 'audio-manager':
         case 'sms':
         case 'bluetooth':
+        case 'bluetooth-le':
         case 'audio-router':
         case 'system-apps':
         case 'graphics-api':
