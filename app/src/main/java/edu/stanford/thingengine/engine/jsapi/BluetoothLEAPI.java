@@ -60,11 +60,11 @@ import android.os.IBinder;
 public class BluetoothLEAPI extends JavascriptAPI{
 
     public Context m_context = null;
-    public static final String LOG_TAG = "thingengine.BluetoothLE";
+    public static final String LOG_TAG = "thingengine.Service";
 
     private BluetoothGatt bluetoothGatt;
     public List<BluetoothGattService> gattServices;
-    private static final long BLE_SCAN_PERIOD = 10000;
+    private static final long BLE_SCAN_PERIOD = 100000;
 
     private final EngineService ctx;
     private final Handler handler;
@@ -73,10 +73,10 @@ public class BluetoothLEAPI extends JavascriptAPI{
     private final Map<String, BluetoothDevice> fetchingUuids = new HashMap<>();
     private String bluetoothDeviceAddress;
 
-    private final long FETCH_UUID_TIMEOUT = 20000;
+    private final long FETCH_UUID_TIMEOUT = 200000;
 
     private Receiver receiver;
-    // private volatile boolean discovering;
+    private volatile boolean discovering;
     private volatile boolean scanning;
 
     private static final int STATE_DISCONNECTED = 0;
@@ -98,9 +98,6 @@ public class BluetoothLEAPI extends JavascriptAPI{
 
 
     private static final String TAG = new String("BluetoothAPI");
-
-
-    //newly added
     private ArrayList<ArrayList<BluetoothGattCharacteristic>> mGattCharacteristics =
             new ArrayList<ArrayList<BluetoothGattCharacteristic>>();
 
@@ -109,10 +106,9 @@ public class BluetoothLEAPI extends JavascriptAPI{
     public static String CLIENT_CHARACTERISTIC_CONFIG = "00002902-0000-1000-8000-00805f9b34fb";
 
     static {
-        // Sample Services.
+        // Services.
         attributes.put("0000180d-0000-1000-8000-00805f9b34fb", "Heart Rate Service");
-        attributes.put("0000180a-0000-1000-8000-00805f9b34fb", "Device Information Service");
-        // Sample Characteristics.
+        // Characteristics.
         attributes.put(HEART_RATE_MEASUREMENT, "Heart Rate Measurement");
         attributes.put("00002a29-0000-1000-8000-00805f9b34fb", "Manufacturer Name String");
     }
@@ -135,7 +131,6 @@ public class BluetoothLEAPI extends JavascriptAPI{
     private class Receiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
-            // bugbugbugbug
             m_context = context;
 
             switch (intent.getAction()) {
@@ -179,16 +174,9 @@ public class BluetoothLEAPI extends JavascriptAPI{
                     String heartRateString = "";
                     if (extras != null) {
                         heartRateString = extras.getString(EXTRA_DATA);
-
                     }
-
-
                     Log.d("***HEARTRATE******", heartRateString);
-
-
                     mheartRateString = heartRateString;
-                    // onHeartRateAvailable();
-
                     onDeviceFound(bluetoothGatt.getDevice());
                     return;
             }
@@ -204,7 +192,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
 
         adapter = ((BluetoothManager) ctx.getSystemService(Context.BLUETOOTH_SERVICE)).getAdapter();
 
-        // discovering = false;
+        discovering = false;
         scanning = false;
 
         registerAsync("start", new GenericCall() {
@@ -240,7 +228,6 @@ public class BluetoothLEAPI extends JavascriptAPI{
             }
         });
 
-        /*
         registerAsync("pairDevice", new GenericCall() {
             @Override
             public Object run(Object... args) throws Exception {
@@ -248,7 +235,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
                 return null;
             }
         });
-*/
+
         registerAsync("readUUIDs", new GenericCall() {
             @Override
             public Object run(Object... args) throws Exception {
@@ -282,9 +269,20 @@ public class BluetoothLEAPI extends JavascriptAPI{
     }
 
 
-    private String readHeartRate() {
-
+    private String readHeartRateNoWait() {
         // adapter.startDiscovery();
+        scanLeDevice(true);
+        if (mheartRateString != null) {
+            return mheartRateString;
+        }
+        else{
+            return new String("Try again later.");
+        }
+
+    }
+
+    // wait for a heart rate if not already available
+    private String readHeartRate() {
         scanLeDevice(true);
         long startTime = System.currentTimeMillis();
         synchronized (this) {
@@ -326,8 +324,6 @@ public class BluetoothLEAPI extends JavascriptAPI{
         filter.addAction(ACTION_DATA_AVAILABLE);
 
 
-        // old actions to be removed
-
         filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
         filter.addAction(BluetoothDevice.ACTION_FOUND);
@@ -338,15 +334,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
 
 
         ctx.registerReceiver(receiver, filter, null, handler);
-        //testing
-        // scanLeDevice(true);
-/* testtest
-        if (adapter != null) {
-            Collection<BluetoothDevice> devices = adapter.getBondedDevices();
-            for (BluetoothDevice d : devices)
-                onDeviceFound(d);
-        }
-*/
+
     }
 
     private void stop() {
@@ -356,11 +344,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
 
     private void onStateChanged(int newState, int oldState) {
         invokeAsync("onstatechanged", new int[] { newState, oldState });
-/*testtesttest
-        if (discovering && newState == BluetoothAdapter.STATE_ON && adapter != null)
-            adapter.startDiscovery();
 
-*/
     }
 
     private void onHeartRateAvailable() {
@@ -392,17 +376,6 @@ public class BluetoothLEAPI extends JavascriptAPI{
 
             obj.put("uuids", uuidsToJson(device.getUuids()));
             obj.put("heartrate",mheartRateString);
-
-            /*
-            obj.put("class", device.getBluetoothClass().getDeviceClass());
-            // Log.d("class", device.getBluetoothClass().toString());
-
-
-            obj.put("alias", device.getName());
-            // Log.d("alias", device.getName().toString());
-
-            obj.put("paired", device.getBondState() == BluetoothDevice.BOND_BONDED);
-            */
 
         } catch (JSONException e) {
             Log.i(LOG_TAG, "Failed to serialize BT device", e);
@@ -441,57 +414,36 @@ public class BluetoothLEAPI extends JavascriptAPI{
         }
     }
 
-
-
-
-
-
-
-    // le bluetooth specific
-
-
     private boolean scanLeDevice(final boolean enable) {
         if (enable) {
             handler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    // TODO
                     scanning = false;
                     Log.d("scanLeDevice", "inside postelayed");
-                    // adapter.stopLeScan(leScanCallback);
-                    // testtest bugbug 
                     stopScanning();
 
                 }
             }, BLE_SCAN_PERIOD);
 
-           //  TODO
             scanning = true;
-            //
+
             boolean status = adapter.startLeScan(leScanCallback);
             return status;
 
         } else {
-            //  TODO
             scanning = false;
-            // adapter.stopLeScan(leScanCallback);
             stopScanning();
         }
 
         return true;
     }
 
-//newly added bugbug
     public void connectToDevice(BluetoothDevice device) {
         if (bluetoothGatt == null) {
             bluetoothGatt = device.connectGatt(this.ctx, false, mGattCallback);
-            // testing if this fix the character reading thing
             bluetoothGatt.connect();
 
-            // TODO when to stop?
-            // scanLeDevice(false);// bugbug will stop after first device detection
-            //
-            // testtest // stopDiscovery(); // bugbug will stop after first device detection
         }
     }
 
@@ -525,26 +477,17 @@ public class BluetoothLEAPI extends JavascriptAPI{
                 gattServices = gatt.getServices();
                 Log.d("onServicesDiscovered", gattServices.toString());
 
+
                 for (BluetoothGattService service : gattServices) {
-
                     List<BluetoothGattCharacteristic> chars = service.getCharacteristics();
-
                     for (BluetoothGattCharacteristic ch : chars) {
-
-                        //find descriptor UUID that matches Client Characteristic Configuration (0x2902)
-                        // and then call setValue on that descriptor
-
                         setCharacteristicNotification(ch, true);
-                        // broadcastUpdate(ACTION_DATA_AVAILABLE, ch);
-
                     }
                 }
 
 
                 Log.w(TAG, "onServicesDiscovered received success: " + status);
                 broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED);
-            } else {
-                // Log.w(TAG, "onServicesDiscovered received: " + status);
             }
         }
 
@@ -558,6 +501,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
             }
+
             Log.d(TAG, "End onCharacteristicRead: " + status);
         }
 
@@ -578,18 +522,17 @@ public class BluetoothLEAPI extends JavascriptAPI{
             m_context.sendBroadcast(intent);
         }
 
+
     }
 
     private void broadcastUpdate(final String action,
                                  final BluetoothGattCharacteristic characteristic) {
                                      
-        Log.d("broadcastUpd_realdata", action);
+        Log.d("broadcastUpdate_realdata", action);
         Log.d("broadcastUpdate", characteristic.toString());
         final Intent intent = new Intent(action);
 
-        // This is special handling for the Heart Rate Measurement profile.  Data parsing is
-        // carried out as per profile specifications:
-        // http://developer.bluetooth.org/gatt/characteristics/Pages/CharacteristicViewer.aspx?u=org.bluetooth.characteristic.heart_rate_measurement.xml
+        // handling for the Heart Rate Measurement profile.
         if (UUID_HEART_RATE_MEASUREMENT.equals(characteristic.getUuid())) {
             Log.d(TAG, "heart_rate_measurement");
             int flag = characteristic.getProperties();
@@ -605,10 +548,8 @@ public class BluetoothLEAPI extends JavascriptAPI{
             Log.d(TAG, String.format("Received heart rate: %d", heartRate));
             intent.putExtra(EXTRA_DATA, String.valueOf(heartRate));
             mheartRateString = String.valueOf(heartRate);
-            if (bluetoothGatt != null) {
-                if (bluetoothGatt.getDevice() != null)
-                    onDeviceFound(bluetoothGatt.getDevice());
-            }
+
+            onDeviceFound(bluetoothGatt.getDevice());
         } else {
             // For all other profiles, writes the data formatted in HEX.
             Log.d(TAG, "not heart rate stuff");
@@ -630,7 +571,6 @@ public class BluetoothLEAPI extends JavascriptAPI{
 
 
     }
-
 
     public class LocalBinder extends Binder {
 
@@ -701,11 +641,16 @@ public class BluetoothLEAPI extends JavascriptAPI{
         if (bluetoothDeviceAddress != null && address.equals(bluetoothDeviceAddress)
                 && bluetoothGatt != null) {
             Log.d("connect", "Trying to use an existing mBluetoothGatt for connection.");
-           // if (connectionState == STATE_CONNECTING){
-           //     Log.d("connect-bugbug", "skip connecting again");
-           //     return true;
-           // }
-           //
+
+            /*
+
+            if (connectionState == STATE_CONNECTING){
+               Log.d("connect-bugbug", "skip connecting again");
+                return true;
+            }
+
+            */
+
             if (bluetoothGatt.connect()) {
                 connectionState = STATE_CONNECTING;
                 return true;
@@ -755,14 +700,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
         bluetoothGatt = null;
     }
 
-    
-    /**
-     * Request a read on a given {@code BluetoothGattCharacteristic}. The read result is reported
-     * asynchronously through the {@code BluetoothGattCallback#onCharacteristicRead(android.bluetooth.BluetoothGatt, android.bluetooth.BluetoothGattCharacteristic, int)}
-     * callback.
-     *
-     * @param characteristic The characteristic to read from.
-     */
+
     public void readCharacteristic(BluetoothGattCharacteristic characteristic) {
         if (adapter == null || bluetoothGatt == null) {
             Log.w(TAG, "BluetoothAdapter not initialized");
@@ -772,12 +710,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
         Log.w(TAG, "readCharacteristic");
     }
 
-    /**
-     * Enables or disables notification on a give characteristic.
-     *
-     * @param characteristic Characteristic to act on.
-     * @param enabled If true, enable notification.  False otherwise.
-     */
+
     public void setCharacteristicNotification(BluetoothGattCharacteristic characteristic,
                                               boolean enabled) {
         if (adapter == null || bluetoothGatt == null) {
@@ -786,7 +719,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
         }
         bluetoothGatt.setCharacteristicNotification(characteristic, enabled);
         Log.w(TAG, "setCaracteristicNotification");
-        // This is specific to Heart Rate Measurement.
+        // Heart Rate Measurement.
         if (UUID_HEART_RATE_MEASUREMENT.equals(characteristic.getUuid())) {
             BluetoothGattDescriptor descriptor = characteristic.getDescriptor(
                     UUID.fromString(CLIENT_CHARACTERISTIC_CONFIG));
@@ -799,19 +732,11 @@ public class BluetoothLEAPI extends JavascriptAPI{
         }
     }
 
-    /**
-     * Retrieves a list of supported GATT services on the connected device. This should be
-     * invoked only after {@code BluetoothGatt#discoverServices()} completes successfully.
-     *
-     * @return A {@code List} of supported services.
-     */
     public List<BluetoothGattService> getSupportedGattServices() {
         if (bluetoothGatt == null) return null;
 
         return bluetoothGatt.getServices();
     }
-
-
 
 
     private BluetoothAdapter.LeScanCallback leScanCallback =
@@ -821,7 +746,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
                                  byte[] scanRecord) {
 
                 Log.d("onLeScan", device.toString());
-                // testtest
+
                 connectToDevice(device);
                 String address = device.getAddress();
 
@@ -841,26 +766,15 @@ public class BluetoothLEAPI extends JavascriptAPI{
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                // TODO
                 stopDiscovery();
-                // discovering = false;
-
-                // adapter.stopLeScan(leScanCallback);
                 stopScanning();
             }
-        }, timeout);
-
-        /* TODO
-        if (adapter.startDiscovery()) {
-            discovering = true;
-            return;
-        }
-        */
+        }, timeout*10);
 
 
         if (scanLeDevice(true)) {
             scanning = true;
-           // discovering = true;
+            discovering = true;
             return;
         }
 
@@ -873,36 +787,19 @@ public class BluetoothLEAPI extends JavascriptAPI{
         if (!callback.startActivity(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), InteractionCallback.ENABLE_BLUETOOTH))
             throw new InterruptedException("User denied enabling Bluetooth");
 
-        /* TODO
-        if (adapter.startDiscovery()) {
-            discovering = true;
-        }
-        */
 
-        //if (scanLeDevice(true)) {
-        //    discovering = true;
-         //   return;
-        // }
 
     }
 
     private void stopDiscovery() {
-        //discovering = false;
+        discovering = false;
         scanning = false;
-        /* TODO
-        if (adapter != null)
-            adapter.cancelDiscovery();
-        */
         scanLeDevice(false);
-        /* testtest
-        if (adapter != null)
-            adapter.cancelDiscovery();
-        */
-        disconnect();
-        close();
+
     }
 
     private void stopScanning() {
+
         try {
             adapter.stopLeScan(leScanCallback);
             Log.d("stopScanning", "Scanning stopped");
@@ -912,7 +809,6 @@ public class BluetoothLEAPI extends JavascriptAPI{
 
     }
 
-    /*
     private void pairDevice(String address) throws InterruptedException {
         if (adapter == null)
             throw new UnsupportedOperationException("This device has no Bluetooth adapter");
@@ -943,16 +839,15 @@ public class BluetoothLEAPI extends JavascriptAPI{
             }
         }
     }
-*/
+
     @NonNull
     private JSONArray readUUIDs(String address) throws InterruptedException {
 
         if (adapter == null)
             throw new UnsupportedOperationException("This device has no Bluetooth adapter");
 
-        // BluetoothDevice dev = adapter.getRemoteDevice(address.toUpperCase());
-        BluetoothDevice dev = bluetoothGatt.getDevice(); // BUGBUG
-        address = dev.getAddress().toLowerCase(); //BUGBUG
+        BluetoothDevice dev = bluetoothGatt.getDevice();
+        address = dev.getAddress().toLowerCase();
 
         long startTime = System.currentTimeMillis();
         synchronized (this) {
