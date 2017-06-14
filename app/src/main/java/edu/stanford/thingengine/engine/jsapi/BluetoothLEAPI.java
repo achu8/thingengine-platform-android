@@ -54,7 +54,7 @@ import android.os.Binder;
 import android.os.IBinder;
 
 /**
- * This class includes a small subset of standard GATT attributes for demonstration purposes.
+ * This class implements BLE supports for heart rate monitor
  */
 
 public class BluetoothLEAPI extends JavascriptAPI{
@@ -118,7 +118,6 @@ public class BluetoothLEAPI extends JavascriptAPI{
         return name == null ? defaultName : name;
     }
 
-    // end of newly added
 
 
     public final static UUID UUID_HEART_RATE_MEASUREMENT =
@@ -517,7 +516,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
     private void broadcastUpdate(final String action) {
         Log.d("broadcastUpdate", action);
         final Intent intent = new Intent(action);
-        // bugbugbugbugbug   (Need to figure out this later)
+
         if (m_context != null) {
             m_context.sendBroadcast(intent);
         }
@@ -564,7 +563,7 @@ public class BluetoothLEAPI extends JavascriptAPI{
         }
 
 
-        // bugbugbugbugbug
+
         if (m_context != null){
             m_context.sendBroadcast(intent);
         }
@@ -580,13 +579,13 @@ public class BluetoothLEAPI extends JavascriptAPI{
         }
     }
 
-    // bugbugbugbug @Override
+
     public IBinder onBind(Intent intent) {
         Log.d("IBinder", "onBind");
         return mBinder;
     }
 
-    //bugbugbugbug @Override
+
     public boolean onUnbind(Intent intent) {
         // After using a given device, you should make sure that BluetoothGatt.close() is called
         // such that resources are cleaned up properly.  In this particular example, close() is
@@ -619,16 +618,8 @@ public class BluetoothLEAPI extends JavascriptAPI{
         return true;
     }
 
-    /**
-     * Connects to the GATT server hosted on the Bluetooth LE device.
-     *
-     * @param address The device address of the destination device.
-     *
-     * @return Return true if the connection is initiated successfully. The connection result
-     *         is reported asynchronously through the
-     *         {@code BluetoothGattCallback#onConnectionStateChange(android.bluetooth.BluetoothGatt, int, int)}
-     *         callback.
-     */
+
+    // Connects to the GATT server hosted on the Bluetooth LE device
     public boolean connect(final String address) {
         if (adapter == null || address == null) {
             Log.w("connect", "BluetoothAdapter not initialized or unspecified address.");
@@ -641,15 +632,6 @@ public class BluetoothLEAPI extends JavascriptAPI{
         if (bluetoothDeviceAddress != null && address.equals(bluetoothDeviceAddress)
                 && bluetoothGatt != null) {
             Log.d("connect", "Trying to use an existing mBluetoothGatt for connection.");
-
-            /*
-
-            if (connectionState == STATE_CONNECTING){
-               Log.d("connect-bugbug", "skip connecting again");
-                return true;
-            }
-
-            */
 
             if (bluetoothGatt.connect()) {
                 connectionState = STATE_CONNECTING;
